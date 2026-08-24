@@ -1,0 +1,78 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: macrocanvas-backend:local
+    environment:
+      - TZ=Asia/Shanghai
+      - LISTEN_ADDR=:8080
+      - DATA_DIR=/data
+      - DEVICE_MODE=${DEVICE_MODE:-auto}
+      - HID_GADGET_ENABLED=false
+      - AUTH_TOKEN=mc-dev-31821
+      - BIND_LOOPBACK_ONLY=false
+      - LOG_LEVEL=info
+      - PUBLIC_HOST=localhost:31821
+      - CORS_EXTRA=
+    volumes:
+      - ./data:/data
+    ports:
+      - "31822:8080"
+    privileged: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  frontend-user:
+    build:
+      context: ./frontend-user
+      dockerfile: Dockerfile
+    image: macrocanvas-frontend:local
+    ports:
+      - "31821:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  qa:
+    profiles: [qa]
+    image: mcr.microsoft.com/playwright:v1.49.1-jammy
+    working_dir: /e2e
+    environment:
+      - TZ=Asia/Shanghai
+      - BASE_URL=http://frontend-user
+      - API_URL=http://backend:8080
+      - AUTH_TOKEN=mc-dev-31821
+      - PYTHONIOENCODING=utf-8
+    volumes:
+      - ./tests/e2e/e2e_flow.spec.ts:/e2e/e2e_flow.spec.ts
+      - ./tests/e2e/package.json:/e2e/package.json
+      - ./tests/e2e/playwright.config.ts:/e2e/playwright.config.ts
+      - ./tests/api_smoke.py:/e2e/api_smoke.py
+      - ./tests/pytest.ini:/e2e/pytest.ini
+    depends_on:
+      frontend-user:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    entrypoint: ["bash", "-lc"]
+    user: root
+    command:
+      - |
+        apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3-pip python3-requests python3-pytest >/dev/null
+        python3 -m pip install -q websocket-client
+        npm install --registry=https://registry.npmmirror.com
+        python3 -m pytest /e2e/api_smoke.py -p no:cacheprovider -q
+        npx playwright test
