@@ -64,6 +64,10 @@ func (e *Executor) Run(ctx context.Context, runID, macroID string, p *Program) R
 	iters := 0
 	status, reason := "succeeded", ""
 
+	// inject guards normal op injection with the context; releaseAll injects
+	// UNCONDITIONALLY so that keys/buttons held when a run is cancelled are
+	// always released, even after ctx is done. Otherwise a cancelled macro
+	// leaves physical state stuck (e.g. keyDown(A) with no matching keyUp).
 	inject := func(kind hid.EventKind, page, usage uint16, val int32) {
 		if ctx.Err() != nil {
 			return
@@ -73,13 +77,13 @@ func (e *Executor) Run(ctx context.Context, runID, macroID string, p *Program) R
 	releaseAll := func() {
 		for u, d := range keys {
 			if d {
-				inject(hid.KindKey, hid.PageKeyboard, uint16(u), 0)
+				_ = e.sink.Inject(hid.Event{Kind: hid.KindKey, Page: hid.PageKeyboard, Usage: uint16(u), Value: 0, Source: hid.SourceInjected})
 				keys[u] = false
 			}
 		}
 		for u, d := range btns {
 			if d {
-				inject(hid.KindButton, hid.PageButton, uint16(u), 0)
+				_ = e.sink.Inject(hid.Event{Kind: hid.KindButton, Page: hid.PageButton, Usage: uint16(u), Value: 0, Source: hid.SourceInjected})
 				btns[u] = false
 			}
 		}
@@ -123,7 +127,7 @@ func (e *Executor) Run(ctx context.Context, runID, macroID string, p *Program) R
 			inject(hid.KindPointer, op.Page, op.Usage, op.Value)
 		case OpWait:
 			d, st, _ := budget.Clamp(time.Duration(op.DelayNs), strat)
-			e.pacer.Wait(d, st)
+			e.pacer.WaitCtx(ctx, d, st)
 			plan += op.DelayNs
 		case OpWaitRand:
 			lo, hi := op.DelayNs, op.Imm
@@ -138,7 +142,7 @@ func (e *Executor) Run(ctx context.Context, runID, macroID string, p *Program) R
 				n = lo
 			}
 			d, st, _ := budget.Clamp(time.Duration(n), strat)
-			e.pacer.Wait(d, st)
+			e.pacer.WaitCtx(ctx, d, st)
 			plan += n
 		case OpJump:
 			pc += int(op.Jump)
