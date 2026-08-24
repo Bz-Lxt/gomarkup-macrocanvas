@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -212,7 +213,7 @@ func (s *Server) putMacro(w http.ResponseWriter, r *http.Request) {
 func (s *Server) delMacro(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if err := s.db.DeleteMacro(id); err != nil {
-		if err == storage.ErrMacroNotFound {
+		if errors.Is(err, storage.ErrMacroNotFound) {
 			writeErr(w, "notfound", CodeNotFound, "macro not found")
 			return
 		}
@@ -382,11 +383,11 @@ func (s *Server) clearEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 	writeOK(w, map[string]any{
-		"mask_printable": s.hub.Mask(),
+		"mask_printable":     s.hub.Mask(),
 		"capture_authorized": s.hub.Authorized(),
-		"global_enabled": s.global,
-		"emergency_hotkey": s.cfg.EmergencyHotkey,
-		"device_mode": s.cfg.DeviceMode,
+		"global_enabled":     s.global,
+		"emergency_hotkey":   s.cfg.EmergencyHotkey,
+		"device_mode":        s.cfg.DeviceMode,
 	})
 }
 
