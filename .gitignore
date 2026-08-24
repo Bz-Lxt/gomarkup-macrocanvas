@@ -1,0 +1,42 @@
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go
+backend/bin/
+backend/coverage.out
+backend/coverage.html
+*.test
+*.out
+
+# Node
+frontend-user/node_modules/
+frontend-user/dist/
+frontend-admin/node_modules/
+frontend-mp/node_modules/
+tests/e2e/node_modules/
+tests/e2e/test-results/
+tests/e2e/playwright-report/
+
+# Runtime data
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Env secrets
+.env
+.env.local
+*.pem
+
+# Playwright
+/blob-report/
+/playwright/.cache/
+/docs/
+/.alkaid-sop
+/CLAUDE.md
+/AGENTS.md
+/.cursorrules
+/.github/
