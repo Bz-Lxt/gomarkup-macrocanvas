@@ -76,7 +76,7 @@ func (d *DB) UpsertMacro(m macro.Macro) error {
 		return err
 	}
 	_, err = d.sql.Exec(`INSERT INTO macros(id,name,payload,updated_at) VALUES(?,?,?,?)
-ON CONFLICT(id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at`,
+ON CONFLICT(id) DO UPDATE SET name=excluded.name, payload=excluded.payload, updated_at=excluded.updated_at`,
 		m.ID, m.Name, string(b), m.UpdatedAt)
 	return err
 }
